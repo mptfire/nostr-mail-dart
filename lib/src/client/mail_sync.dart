@@ -479,6 +479,19 @@ class MailSync {
 
       final rumor = unwrapped.payload;
 
+      // NIP-17: the rumor pubkey must match the seal's signer, "otherwise
+      // any sender can impersonate" by changing the pubkey on the unsigned
+      // rumor. The seal is the only signed sender binding, so a mismatch
+      // means the envelope was forged around someone else's identity: the
+      // mail is never stored and never retried.
+      if (unwrapped.seal!.pubKey != rumor.pubKey) {
+        await _giftWraps.recordFailure(
+          giftWrapId: event.id,
+          failure: GiftWrapFailure.permanent,
+        );
+        return false;
+      }
+
       if (rumor.kind != emailKind) {
         await _giftWraps.markStored(event.id);
         return false;
