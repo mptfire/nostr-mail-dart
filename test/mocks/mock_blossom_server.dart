@@ -289,6 +289,18 @@ class MockBlossomServer {
     return router;
   }
 
+  /// Registers [bytes] under [sha256] verbatim, WITHOUT computing the hash.
+  /// A poisoning test needs to serve bytes that do not match the hash the
+  /// client asked for, which the upload route can never produce.
+  void serveUnder(String sha256, Uint8List bytes) {
+    _blobs[sha256] = _BlobEntry(
+      data: bytes,
+      contentType: 'application/octet-stream',
+      uploader: 'poisoner',
+      uploadedAt: DateTime.now(),
+    );
+  }
+
   Future<void> start() async {
     final handler = Pipeline()
         .addMiddleware(logRequests())

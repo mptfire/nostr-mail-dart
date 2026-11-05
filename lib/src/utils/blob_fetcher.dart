@@ -4,6 +4,8 @@ import 'package:blossom_cache/blossom_cache.dart';
 import 'package:ndk/ndk.dart';
 
 import '../constants.dart';
+import '../exceptions.dart';
+import 'package:crypto/crypto.dart' as crypto;
 
 /// The [BlossomCache] pin holder for [pubkey]'s blobs. Prefixed because the
 /// cache belongs to the caller and may be shared with other consumers.
@@ -19,7 +21,8 @@ String blobPinHolder(String pubkey) => 'nostr_mail:$pubkey';
 /// store the bytes in [cache].
 ///
 /// Throws whatever the underlying [Ndk.blossom.getBlob] call throws when no
-/// server holds the blob.
+/// server holds the blob, and [EmailParseException] when a server serves
+/// bytes that do not hash to [blossomHash] — they are never cached.
 Future<Uint8List> fetchOrLoadEncryptedBlob({
   required String blossomHash,
   required List<String> involvedPubkeys,
@@ -43,6 +46,18 @@ Future<Uint8List> fetchOrLoadEncryptedBlob({
       defaultBlossomServers: defaultBlossomServers,
     ),
   );
+
+  // A Blossom server can serve any bytes under any hash: BUD-01 auth covers
+  // uploads, not reads, and the URL is content-addressed but unverified on
+  // the wire. The declared hash is the only integrity check, so verify
+  // before caching — otherwise one poisoned response persists forever via
+  // the cache fast path (audit finding N-2).
+  final actual = crypto.sha256.convert(downloadResult.data).toString();
+  if (actual != blossomHash.toLowerCase()) {
+    throw EmailParseException(
+      'Blossom blob $blossomHash was served bytes that hash to $actual',
+    );
+  }
 
   await cache.put(
     downloadResult.data,
