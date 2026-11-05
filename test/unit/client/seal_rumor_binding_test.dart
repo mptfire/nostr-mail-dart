@@ -239,5 +239,19 @@ void main() {
       expect(result.isSealSignatureValid, isTrue);
       expect(result.isPubkeyMatch, isFalse);
     });
+  test('storedEventIds covers wrap and seal ids for the logout purge', () async {
+    final rumor = rumorFor(attackerKeys.publicKey);
+    final wrap = await wrapRumor(rumor, sealSigner: attackerKeys);
+    await sync.onGiftWrap(wrap);
+
+    final innerSeal = await ndk.giftWrap.unwrapEvent(wrappedEvent: wrap);
+    final ids = await giftWraps.storedEventIds(
+      recipientPubkey: recipientKeys.publicKey,
+    );
+    expect(ids, contains(wrap.id), reason: 'wrap-layer sidecar key');
+    expect(ids, contains(innerSeal.id),
+        reason: 'seal-layer sidecar key holding the decrypted email');
+  });
+
   });
 }

@@ -84,6 +84,27 @@ class GiftWrapRepository {
   /// Written as soon as they are in hand so a later failure resumes at the
   /// Blossom fetch: reaching this point cost the signer its approvals, and a
   /// remote signer would have to ask its user for them again.
+  /// Every event id whose decrypted payload may sit in the NDK cache for
+  /// [recipientPubkey]: the gift wrap ids (wrap-layer sidecar) plus the seal
+  /// ids recorded on opened wraps (seal-layer sidecar, which holds the
+  /// decrypted email). Logout purges the cached payloads for exactly these
+  /// ids so plaintext mail does not outlive the account on the device.
+  Future<Set<String>> storedEventIds({required String recipientPubkey}) async {
+    final u = _db.unsealed;
+    final rows =
+        await (u.select()..where((r) => r.recipientPubkey.equals(recipientPubkey)))
+            .get();
+    final ids = <String>{};
+    for (final row in rows) {
+      ids.add(row.wrapId);
+      if (row.seal != null) {
+        final sealId = _decode(row.seal!).id;
+        if (sealId.isNotEmpty) ids.add(sealId);
+      }
+    }
+    return ids;
+  }
+
   Future<void> updateUnsealed({
     required String giftWrapId,
     required String recipientPubkey,

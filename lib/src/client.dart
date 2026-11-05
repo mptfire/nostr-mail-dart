@@ -765,6 +765,13 @@ class NostrMailClient {
     return Nip01EventModel.fromJson(record['rumor'] as Map);
   }
 
+  /// Event ids whose decrypted payloads may be cached in the NDK cache for
+  /// [recipientPubkey] (gift wraps plus their seals). Used by logout cleanup
+  /// to purge plaintext payload sidecars; see
+  /// [GiftWrapRepository.storedEventIds].
+  Future<Set<String>> storedEventIds({required String recipientPubkey}) =>
+      _giftWrapRepo.storedEventIds(recipientPubkey: recipientPubkey);
+
   // ── Attachments and raw MIME ────────────────────────────────────────────
 
   /// Load the decoded bytes for one of [email]'s attachments.
